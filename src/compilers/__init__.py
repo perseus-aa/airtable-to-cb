@@ -1,8 +1,9 @@
 from pathlib import Path
 import csv
 import json
-import models
+from models import Row, ArtifactRow, ImageRow
 
+import models
 
 
 def iiif_image_uri(image_id:str) -> str:
@@ -26,13 +27,61 @@ class ArtifactFactory():
                 self.artifacts.append(obj_class(**row))
 
 
-class Db():
+class ArtifactFactoryOld():
+    def __init__(self, airtable_artifacts_file:str) -> None:
+        self.artifacts:list[models.Artifact] = []
+        with open(airtable_artifacts_file, 'r', newline='', encoding='utf-8-sig') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                obj_type: str = row['type']
+                obj_class:type  = getattr(models, obj_type)
+                self.artifacts.append(obj_class(**row))
+
+
+class CBTable:
+    def __init__(self, artifacts_file, images_file):
+        self.image_idx = {}
+        self.artifact_idx = {}
+
+        with open(self.images_file, 'r', newline='', encoding='utf-8-sig') as f:
+            reader = csv.DictReader(f)
+            for record in reader:
+                row = ImageRow(**record)
+                self.image_idx[row['id']] = row
+
+
+        with open(self.artifacts_file, 'r', newline='', encoding='utf-8-sig') as f:
+            reader = csv.DictReader(f)
+            for record in reader:
+                row = ArtifactRow(**record)
+                self.artifact_idx[row['id']] = row
+
+
+    @property
+    def artifacts(self):
+        if self._artifacts is None:
+            with open(self.artifacts_file, 'r', newline='', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    self._artifacts.append(Row(**row))
+
+        return self._artifacts
+
+    @property
+    def images(self):
+        if self._images is None:
+            
+            
+    
+    
+
+
+class Dbold():
     def __init__(self) -> None:
         self.artifacts: dict[str,models.Artifact] = {}
         self.images: dict[str,models.Image] = {}
         self.image_idx = {}
         
-
 
 
     def load_artifacts(self, airtable_artifacts_file:str) -> None:
@@ -85,19 +134,46 @@ class CollectionBuilder():
     def objects(self) -> list[models.CBObject]:
         if len(self._objects) == 0:
             for _, obj in self.db.artifacts.items():
-                id:str = obj.id
-                title:str = obj.name
-                cobj: models.CompoundObject = models.CompoundObject(id=id, title=title, data=obj)
+                
+
+
+
+                image_list = []
+                for i in self.db.associated_images(obj):
+                    # cb_image:models.ImageObject = models.ImageObject(parentid = cobj.objectid,
+                    #                                                       **i.model_dump())
+                    imag = models.ImageObject(parentid = cobj.objectid,
+                                                                          **i.model_dump())
+
+                    cb_image['object_location'] = iiif_image_url(i['
+
+
+                    image_list.append(cb_image)
+                if image_list:
+                    cobj.object_location = image_list[0].object_location
+                    cobj.image_small = image_list[0].image_small
+                    cobj.image_thumb = image_list[0].image_thumb
+
                 self._objects.append(cobj)
-                images: list[models.Image] | None = self.db.associated_images(obj)
-                if images:
-                    for i in images:
-                        cb_child:models.ChildObject = models.ImageObject(id=i.id, title=title,
-                                                                         parentid=cobj.objectid,
-                                                                         data=i)
-                        self._objects.append(cb_child)
-                        
+                for i in image_list:
+                    self.objects.append(i)
+
         return self._objects
+
+
+
+    def dump_metadata_table(self, filename):
+        fieldnames = list(models.CBObject.model_fields.keys())
+        with open(filename, 'w', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            for object in self.objects:
+                writer.writerow(object.model_dump())
+                            
+
+            
+    
+        
 
 
 
@@ -141,10 +217,10 @@ class Compiler():
 class VaseCompiler(Compiler):
     def __init__(self, object_file:Path, image_file:Path) -> None:
         super().__init__(object_file, image_file)
-        self.object_index:dict[str,Vase] = {}
+        self.object_index:dict[str,models.Vase] = {}
         with open(object_file, 'r', encoding='utf-8-sig') as f:
             for row in csv.DictReader(f):
-                vase:Vase = Vase(**row)
+                vase:models.Vase = models.Vase(**row)
                 self.object_index[vase.id] = vase
                 
 
