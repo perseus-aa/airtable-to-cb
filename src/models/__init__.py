@@ -6,6 +6,7 @@ IMAGE_SERVER:str = "http://iiif.perseus.tufts.edu/iiif/3"
 class Row:
     def __init__(self, **data):
         self.data = data
+        self.data['objectid'] = self.data['id']
 
 
     @property
