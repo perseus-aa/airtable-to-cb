@@ -22,6 +22,7 @@ package-dir = "src"
 
 [tool.pdm.scripts]
 start = "python -m my_python_project.main"
+make = "python src/at-to-cb.py"
 test = "pytest"
 test_verbose = "pytest -v"
 cov = "pytest --cov=my_python_project --cov-report=html"
