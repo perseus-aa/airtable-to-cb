@@ -77,6 +77,11 @@ class ArtifactRow(Row):
     def type(self) -> str:
         return "record"
 
+    @property
+    def images_list(self) -> list | None:
+        if self.data.get('images'):
+            return self.data['images'].split(',')
+
 
 class ImageRow(Row):
     def __init__(self, **data) -> None:
@@ -95,11 +100,15 @@ class ImageRow(Row):
         # del self.data["credits"]
         # del self.data["uri"]
         # del self.data["caption"]
+        
         del self.data["thumbnail_url"]
 
     @property
-    def parentid(self) -> str:
-        return self.data["represents"]
+    def parentid(self) -> str | None:
+        try:
+            return self.data["represents"]
+        except KeyError:
+            return None
 
     @property
     def object_location(self) -> str:
@@ -259,14 +268,24 @@ class CBTable:
                 self.artifact_idx[row.id] = row
 
     def dump(self, filename):
+        written = []
         with open(filename, "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=self.fieldnames)
             writer.writeheader()
             for _, artifact in self.artifact_idx.items():
                 writer.writerow(artifact.data)
-            for _, image in self.image_idx.items():
-                writer.writerow(image.data)
-
-
-ifile = "/Users/wulfmanc/Downloads/images-CollectionBuilder.csv"
-afile = "/Users/wulfmanc/Downloads/artifacts-CollectionBuilder.csv"
+                imgids = artifact.images_list
+                if imgids:
+                    print(f"{artifact.id}: {imgids}")
+                    for  id in imgids:
+                        try:
+                            image_row = self.image_idx[id]
+                            writer.writerow(image_row.data)
+                            written.append(id)
+                        except KeyError:
+                            print(f"WARNING: no image {id}")
+            # Finally emit rows for images without artifacts
+            print("writing singleton images")
+            for k,v in self.image_idx.items():
+                if k not in written:
+                    writer.writerow(v.data)
